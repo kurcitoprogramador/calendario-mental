@@ -1,3 +1,71 @@
+const WEEKDAYS = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"];
+const WEEKDAYS_SUNDAY_FIRST = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
+const MONTHS = [
+  "",
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
+];
+
+const LESSON = {
+  title: "Estudio",
+  deck: [
+    {
+      key: "axis",
+      title: "Eje",
+      body: "Cada ano tiene un dia ancla. Varias fechas del ano caen en ese mismo dia.",
+      chips: ["ano", "mes", "mod 7"],
+    },
+    {
+      key: "pairs",
+      title: "Pares",
+      body: "4/4, 6/6, 8/8, 10/10 y 12/12 comparten el ancla del ano.",
+      chips: ["4/4", "6/6", "8/8", "10/10", "12/12"],
+    },
+    {
+      key: "odd",
+      title: "Impares",
+      body: "9/5, 5/9, 11/7 y 7/11 son las fechas raras que necesitas memorizar.",
+      chips: ["9/5", "5/9", "11/7", "7/11"],
+    },
+    {
+      key: "janfeb",
+      title: "Inicio",
+      body: "Enero usa 3 o 4. Febrero usa 28 o 29. Cambia si el ano es bisiesto.",
+      chips: ["ene 3/4", "feb 28/29"],
+    },
+    {
+      key: "move",
+      title: "Salto",
+      body: "Resta la fecha ancla del mes. Reduce el resultado con modulo 7. Avanza esos dias.",
+      chips: ["resta", "mod 7", "avanza"],
+    },
+  ],
+  anchors: [
+    { month: "ene", normal: "3", leap: "4" },
+    { month: "feb", normal: "28", leap: "29" },
+    { month: "mar", normal: "14", leap: "14" },
+    { month: "abr", normal: "4", leap: "4" },
+    { month: "may", normal: "9", leap: "9" },
+    { month: "jun", normal: "6", leap: "6" },
+    { month: "jul", normal: "11", leap: "11" },
+    { month: "ago", normal: "8", leap: "8" },
+    { month: "sep", normal: "5", leap: "5" },
+    { month: "oct", normal: "10", leap: "10" },
+    { month: "nov", normal: "7", leap: "7" },
+    { month: "dic", normal: "12", leap: "12" },
+  ],
+};
+
 const state = {
   tab: "study",
   lesson: null,
@@ -12,16 +80,32 @@ const state = {
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
+const staticMode =
+  new URLSearchParams(location.search).has("static") ||
+  location.hostname.endsWith("github.io") ||
+  location.protocol === "file:";
+
 const api = async (path, options = {}) => {
-  const response = await fetch(path, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  });
-  const payload = await response.json();
-  if (!response.ok) {
-    throw new Error(payload.error || "Error");
+  if (staticMode) {
+    return staticApi(path, options);
   }
-  return payload;
+
+  try {
+    const response = await fetch(path, {
+      headers: { "Content-Type": "application/json" },
+      ...options,
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || "Error");
+    }
+    return payload;
+  } catch (error) {
+    if (String(path).startsWith("/api/")) {
+      return staticApi(path, options);
+    }
+    throw error;
+  }
 };
 
 const titleCase = (value) => {
@@ -34,16 +118,23 @@ const seconds = (ms) => {
   return `${(ms / 1000).toFixed(1)}s`;
 };
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
+const localDateIso = (value = new Date()) => {
+  const offset = value.getTimezoneOffset() * 60000;
+  return new Date(value.getTime() - offset).toISOString().slice(0, 10);
+};
+
+const todayIso = () => localDateIso();
 
 const toast = (message) => {
   const node = $("#toast");
   node.textContent = message;
   node.classList.add("is-visible");
-  window.clearTimeout(node.dataset.timer);
-  node.dataset.timer = window.setTimeout(() => {
-    node.classList.remove("is-visible");
-  }, 2200);
+  window.clearTimeout(Number(node.dataset.timer || 0));
+  node.dataset.timer = String(
+    window.setTimeout(() => {
+      node.classList.remove("is-visible");
+    }, 2200),
+  );
 };
 
 const setTab = (tab) => {
@@ -72,7 +163,7 @@ const renderProgress = () => {
         .map(
           (item) => `
             <article class="recent-item">
-              <b>${item.date} · ${titleCase(item.answer)}</b>
+              <b>${item.date} - ${titleCase(item.answer)}</b>
               <span class="${item.correct ? "ok" : ""}">${item.correct ? "ok" : "no"}</span>
             </article>
           `,
@@ -116,7 +207,7 @@ const renderLesson = () => {
 
 const renderAnalysis = (analysis) => {
   $("#analysis-weekday").textContent = titleCase(analysis.weekday);
-  $("#analysis-anchor").textContent = `${analysis.anchorLabel} · ${titleCase(analysis.anchorWeekday)}`;
+  $("#analysis-anchor").textContent = `${analysis.anchorLabel} - ${titleCase(analysis.anchorWeekday)}`;
   $("#analysis-delta").textContent = `${analysis.deltaDays} dias`;
   $("#analysis-mod").textContent = analysis.deltaMod;
   $("#anchor-mode").textContent = analysis.leapYear ? "bisiesto" : "normal";
@@ -276,6 +367,299 @@ const init = async () => {
   renderLesson();
   await analyzeCurrentDate();
   startTimer();
+};
+
+const parseIsoDate = (value) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || "");
+  if (!match) {
+    throw new Error("Fecha invalida. Usa YYYY-MM-DD.");
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const maxDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  if (month < 1 || month > 12 || day < 1 || day > maxDay) {
+    throw new Error("Fecha invalida. Usa YYYY-MM-DD.");
+  }
+  return { year, month, day };
+};
+
+const isoFromParts = ({ year, month, day }) =>
+  `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+const dateLabel = ({ year, month, day }) => `${day} ${MONTHS[month]} ${year}`;
+
+const isLeapYear = (year) => (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+
+const weekdayForParts = ({ year, month, day }) =>
+  WEEKDAYS_SUNDAY_FIRST[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
+
+const doomsdayDayForMonth = (year, month) => {
+  if (month === 1) return isLeapYear(year) ? 4 : 3;
+  if (month === 2) return isLeapYear(year) ? 29 : 28;
+  return { 3: 14, 4: 4, 5: 9, 6: 6, 7: 11, 8: 8, 9: 5, 10: 10, 11: 7, 12: 12 }[month];
+};
+
+const doomsdayForYear = (year) => new Date(Date.UTC(year, 2, 14)).getUTCDay();
+
+const diffDays = (a, b) =>
+  Math.round(
+    (Date.UTC(a.year, a.month - 1, a.day) - Date.UTC(b.year, b.month - 1, b.day)) /
+      86400000,
+  );
+
+const mod = (value, size = 7) => ((value % size) + size) % size;
+
+const analyzeDateStatic = (isoDate) => {
+  const target = parseIsoDate(isoDate);
+  const anchorDay = doomsdayDayForMonth(target.year, target.month);
+  const anchor = { year: target.year, month: target.month, day: anchorDay };
+  const anchorWeekdayIndex = doomsdayForYear(target.year);
+  const deltaDays = diffDays(target, anchor);
+  const deltaMod = mod(deltaDays);
+  const calculatedWeekday = WEEKDAYS_SUNDAY_FIRST[(anchorWeekdayIndex + deltaMod) % 7];
+  const weekday = weekdayForParts(target);
+
+  return {
+    isoDate: isoFromParts(target),
+    label: dateLabel(target),
+    weekday,
+    weekdayIndex: WEEKDAYS.indexOf(weekday),
+    anchorDate: isoFromParts(anchor),
+    anchorLabel: dateLabel(anchor),
+    anchorWeekday: WEEKDAYS_SUNDAY_FIRST[anchorWeekdayIndex],
+    deltaDays,
+    deltaMod,
+    leapYear: isLeapYear(target.year),
+    calculatedWeekday,
+    steps: [
+      `Ancla del ano: ${WEEKDAYS_SUNDAY_FIRST[anchorWeekdayIndex]}`,
+      `Ancla del mes: ${anchor.day} ${MONTHS[anchor.month]}`,
+      `Diferencia: ${deltaDays} dias`,
+      `Modulo 7: ${deltaMod}`,
+    ],
+  };
+};
+
+const normalizeWeekday = (answer) => {
+  const normalized = String(answer || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  if (!WEEKDAYS.includes(normalized)) {
+    throw new Error("Dia invalido.");
+  }
+  return normalized;
+};
+
+const randomFromSeed = (seed) => {
+  let value = Number(seed) || Date.now();
+  return () => {
+    value = (value * 1664525 + 1013904223) >>> 0;
+    return value / 4294967296;
+  };
+};
+
+const rangeForLevel = (level) => {
+  const ranges = {
+    base: [2024, 2029],
+    medio: [2000, 2040],
+    duro: [1900, 2099],
+  };
+  return ranges[level] || ranges.base;
+};
+
+const shuffle = (items, random) => {
+  const result = [...items];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
+  }
+  return result;
+};
+
+const generateChallengesStatic = ({ count = 1, level = "base", seed = Date.now() }) => {
+  const random = randomFromSeed(seed);
+  const [startYear, endYear] = rangeForLevel(level);
+  const total = Math.max(1, Math.min(Number(count) || 1, 20));
+  const challenges = [];
+
+  for (let index = 0; index < total; index += 1) {
+    const year = startYear + Math.floor(random() * (endYear - startYear + 1));
+    const month = 1 + Math.floor(random() * 12);
+    const maxDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    const day = 1 + Math.floor(random() * maxDay);
+    const target = { year, month, day };
+    const analysis = analyzeDateStatic(isoFromParts(target));
+    const options = new Set([analysis.weekday]);
+
+    while (options.size < 4) {
+      options.add(WEEKDAYS[Math.floor(random() * WEEKDAYS.length)]);
+    }
+
+    challenges.push({
+      date: isoFromParts(target),
+      label: dateLabel(target),
+      level,
+      options: shuffle([...options], random),
+    });
+  }
+
+  return { level, challenges };
+};
+
+const storageKey = "calendario-mental-progress-v1";
+
+const readStore = () => {
+  try {
+    return JSON.parse(localStorage.getItem(storageKey) || "{}");
+  } catch {
+    return {};
+  }
+};
+
+const writeStore = (data) => {
+  localStorage.setItem(storageKey, JSON.stringify(data));
+};
+
+const progressStatic = () => {
+  const store = readStore();
+  const attempts = store.attempts || [];
+  const studyEvents = store.studyEvents || [];
+  const correctAttempts = attempts.filter((item) => item.correct);
+  const total = attempts.length;
+  const correct = correctAttempts.length;
+  const bestMs = correctAttempts.length
+    ? Math.min(...correctAttempts.map((item) => Number(item.elapsedMs) || 0))
+    : 0;
+  const avgCorrectMs = correctAttempts.length
+    ? Math.round(
+        correctAttempts.reduce((sum, item) => sum + (Number(item.elapsedMs) || 0), 0) /
+          correctAttempts.length,
+      )
+    : 0;
+  const days = [...new Set(attempts.map((item) => String(item.createdAt).slice(0, 10)))];
+  const levels = [...new Set(attempts.map((item) => item.level || "base"))].map((level) => {
+    const levelAttempts = attempts.filter((item) => (item.level || "base") === level);
+    const levelCorrect = levelAttempts.filter((item) => item.correct).length;
+    return {
+      level,
+      attempts: levelAttempts.length,
+      accuracy: levelAttempts.length ? Math.round((levelCorrect / levelAttempts.length) * 100) : 0,
+    };
+  });
+
+  return {
+    attempts: total,
+    correct,
+    accuracy: total ? Math.round((correct / total) * 100) : 0,
+    bestMs,
+    avgCorrectMs,
+    streak: streakFromDays(days),
+    studySessions: studyEvents.length,
+    studyMinutes: studyEvents.reduce((sum, item) => sum + (Number(item.minutes) || 0), 0),
+    studyCompleted: studyEvents.filter((item) => item.completed).length,
+    levels,
+    recent: attempts.slice(-12).reverse(),
+  };
+};
+
+const streakFromDays = (days) => {
+  const set = new Set(days);
+  let cursor = localDateIso();
+  let current = new Date(`${cursor}T12:00:00`);
+  if (!set.has(cursor)) {
+    current.setDate(current.getDate() - 1);
+    cursor = localDateIso(current);
+  }
+
+  let streak = 0;
+  while (set.has(cursor)) {
+    streak += 1;
+    current.setDate(current.getDate() - 1);
+    cursor = localDateIso(current);
+  }
+  return streak;
+};
+
+const createdAtLocal = () => {
+  const now = new Date();
+  const date = localDateIso(now);
+  return `${date}T${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+};
+
+const staticApi = async (path, options = {}) => {
+  const url = new URL(path, location.href);
+  const body = options.body ? JSON.parse(options.body) : {};
+
+  if (url.pathname === "/api/health") {
+    return { ok: true, name: "calendario-mental-static" };
+  }
+
+  if (url.pathname === "/api/lesson") {
+    return LESSON;
+  }
+
+  if (url.pathname === "/api/progress") {
+    return progressStatic();
+  }
+
+  if (url.pathname === "/api/date/analyze") {
+    return analyzeDateStatic(url.searchParams.get("date"));
+  }
+
+  if (url.pathname === "/api/practice/challenge") {
+    return generateChallengesStatic({
+      level: url.searchParams.get("level") || "base",
+      count: Number(url.searchParams.get("count") || 1),
+      seed: Number(url.searchParams.get("seed") || Date.now()),
+    });
+  }
+
+  if (url.pathname === "/api/practice/attempt") {
+    const target = parseIsoDate(body.date);
+    const answer = normalizeWeekday(body.answer);
+    const correctAnswer = weekdayForParts(target);
+    const attempt = {
+      id: Date.now(),
+      date: isoFromParts(target),
+      answer,
+      correctAnswer,
+      correct: answer === correctAnswer,
+      elapsedMs: Math.max(0, Number(body.elapsedMs) || 0),
+      level: body.level || "base",
+      createdAt: createdAtLocal(),
+    };
+    const store = readStore();
+    store.attempts = [...(store.attempts || []), attempt].slice(-500);
+    writeStore(store);
+
+    return {
+      attempt,
+      correct: attempt.correct,
+      correctWeekday: correctAnswer,
+      analysis: analyzeDateStatic(body.date),
+      progress: progressStatic(),
+    };
+  }
+
+  if (url.pathname === "/api/progress/study") {
+    const event = {
+      id: Date.now(),
+      lessonKey: body.lessonKey || "estudio",
+      minutes: Math.max(0, Number(body.minutes) || 0),
+      completed: Boolean(body.completed),
+      createdAt: createdAtLocal(),
+    };
+    const store = readStore();
+    store.studyEvents = [...(store.studyEvents || []), event].slice(-500);
+    writeStore(store);
+
+    return { event, progress: progressStatic() };
+  }
+
+  throw new Error("Ruta no encontrada.");
 };
 
 init().catch((error) => {
