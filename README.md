@@ -49,6 +49,7 @@ En Windows tambien puedes usar:
 - `POST /api/practice/attempt`
 - `POST /api/year/attempt`
 - `POST /api/progress/study`
+- `POST /api/progress/reset`
 
 ## Pruebas
 

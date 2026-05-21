@@ -190,6 +190,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(HTTPStatus.OK, {"event": event, "progress": STORE.progress()})
                 return
 
+            if method == "POST" and path == "/api/progress/reset":
+                self._send_json(HTTPStatus.OK, {"progress": STORE.reset_progress()})
+                return
+
             raise ApiError(HTTPStatus.NOT_FOUND, "Ruta no encontrada.")
         except ApiError as exc:
             self._send_json(exc.status, {"error": exc.message})

@@ -46,6 +46,12 @@ class CalendarLogicTest(unittest.TestCase):
         self.assertEqual(analysis["centuryAnchor"], "martes")
         self.assertEqual(analysis["yearPart"], 26)
         self.assertEqual(analysis["leapCount"], 6)
+        self.assertEqual(analysis["quarterRemainder"], 2)
+        self.assertEqual(analysis["weekCount"], 3)
+        self.assertEqual(analysis["weekRemainder"], 5)
+        self.assertEqual(analysis["mentalTotal"], 11)
+        self.assertEqual(analysis["mentalMod"], 4)
+        self.assertEqual(analysis["mentalLine"], "6 + 5 o sea 4 o sea sabado")
         self.assertEqual(analysis["jumpMod"], 4)
         self.assertEqual(analysis["anchorWeekday"], "sabado")
 

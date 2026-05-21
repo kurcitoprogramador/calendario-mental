@@ -121,11 +121,17 @@ def analyze_year(year: int) -> dict:
     century = year - (year % 100)
     year_part = year % 100
     leap_count = year_part // 4
+    quarter_remainder = year_part % 4
+    week_count = year_part // 7
+    week_remainder = year_part % 7
+    mental_total = leap_count + week_remainder
+    mental_mod = mental_total % 7
     jump = year_part + leap_count
     jump_mod = jump % 7
     century_anchor_index = doomsday_for_year(century)
-    anchor_index = (century_anchor_index + jump_mod) % 7
+    anchor_index = (century_anchor_index + mental_mod) % 7
     exact_index = doomsday_for_year(year)
+    anchor_weekday = weekday_name(anchor_index)
 
     return {
         "year": year,
@@ -136,17 +142,25 @@ def analyze_year(year: int) -> dict:
         "centuryAnchor": weekday_name(century_anchor_index),
         "yearPart": year_part,
         "leapCount": leap_count,
+        "quarterRemainder": quarter_remainder,
+        "weekCount": week_count,
+        "weekRemainder": week_remainder,
+        "mentalTotal": mental_total,
+        "mentalMod": mental_mod,
+        "quarterLine": f"{year_part} = 4*{leap_count} + {quarter_remainder}",
+        "weekLine": f"{year_part} = 7*{week_count} + {week_remainder}",
+        "mentalLine": f"{leap_count} + {week_remainder} o sea {mental_mod} o sea {anchor_weekday}",
         "jump": jump,
         "jumpMod": jump_mod,
         "leapYear": is_leap_year(year),
         "calculatedWeekday": weekday_name(anchor_index),
         "steps": [
             f"Siglo {century}: {weekday_name(century_anchor_index)}",
-            f"Final del ano: {year_part}",
-            f"Bisiestos: {year_part} // 4 = {leap_count}",
-            f"Salto: {year_part} + {leap_count} = {jump}",
-            f"Modulo 7: {jump_mod}",
-            f"Ancla: {weekday_name(anchor_index)}",
+            f"Entre 4: {year_part} = 4*{leap_count} + {quarter_remainder}; saco {leap_count}",
+            f"Entre 7: {year_part} = 7*{week_count} + {week_remainder}; saco {week_remainder}",
+            f"Suma: {leap_count} + {week_remainder} = {mental_total}",
+            f"Modulo 7: {mental_mod}",
+            f"Mental: {leap_count} + {week_remainder} o sea {mental_mod} o sea {anchor_weekday}",
         ],
     }
 

@@ -107,6 +107,13 @@ class Store:
                 "createdAt": created_at,
             }
 
+    def reset_progress(self) -> dict[str, Any]:
+        with closing(self.connect()) as connection:
+            connection.execute("DELETE FROM attempts")
+            connection.execute("DELETE FROM study_events")
+            connection.commit()
+        return self.progress()
+
     def progress(self) -> dict[str, Any]:
         with closing(self.connect()) as connection:
             totals = connection.execute(
