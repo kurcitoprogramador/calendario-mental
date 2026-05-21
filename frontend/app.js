@@ -171,21 +171,36 @@ const renderProgress = () => {
   $("#metric-study").textContent = `${progress.studyMinutes || 0}m`;
 
   const recent = progress.recent || [];
-  $("#recent-list").innerHTML = recent.length
-    ? recent
-        .map(
-          (item) => {
-            const label = item.kind === "year" ? item.year || item.date : item.date;
-            return `
-            <article class="recent-item">
-              <b>${label} - ${titleCase(item.answer)}</b>
-              <span class="${item.correct ? "ok" : ""}">${item.correct ? "ok" : "no"}</span>
-            </article>
-          `;
-          },
-        )
-        .join("")
-    : `<article class="recent-item"><b>Sin intentos</b><span>--</span></article>`;
+  const recentMarkup = renderRecentAttempts(recent);
+  $("#recent-list").innerHTML = recentMarkup;
+  $("#year-recent-list").innerHTML = recentMarkup;
+};
+
+const renderRecentAttempts = (recent) => {
+  if (!recent.length) {
+    return `<article class="recent-item is-empty"><b>Sin intentos</b><span>--</span></article>`;
+  }
+
+  return recent
+    .map((item) => {
+      const isYear = item.kind === "year" || String(item.level || "").startsWith("year:");
+      const question = isYear ? `Ano ${item.year || item.date}` : item.date;
+      const status = item.correct ? "ok" : "no";
+      const detail = item.correct
+        ? `tu: ${titleCase(item.answer)}`
+        : `tu: ${titleCase(item.answer)} / era: ${titleCase(item.correctAnswer)}`;
+
+      return `
+        <article class="recent-item ${item.correct ? "is-ok" : "is-miss"}">
+          <div>
+            <b>${question}</b>
+            <small>${detail}</small>
+          </div>
+          <span>${seconds(item.elapsedMs)} - ${status}</span>
+        </article>
+      `;
+    })
+    .join("");
 };
 
 const renderLesson = () => {

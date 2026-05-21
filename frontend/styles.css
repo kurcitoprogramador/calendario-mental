@@ -610,6 +610,10 @@ dd {
   grid-column: 1 / -1;
 }
 
+.history-head {
+  margin-top: 16px;
+}
+
 .practice-dock {
   position: fixed;
   left: 50%;
@@ -662,14 +666,24 @@ body[data-view="years"] .practice-dock {
   gap: 8px;
   align-items: center;
   padding: 10px;
-  border: 1px solid var(--line);
+  border: 2px solid var(--line);
   border-radius: var(--radius);
   background: #fff;
   font-size: 0.86rem;
+  box-shadow: 3px 3px 0 rgba(17, 17, 17, 0.08);
 }
 
 .recent-item b {
+  display: block;
   overflow-wrap: anywhere;
+}
+
+.recent-item small {
+  display: block;
+  margin-top: 3px;
+  color: #312f2b;
+  font-weight: 800;
+  line-height: 1.25;
 }
 
 .recent-item span {
@@ -678,10 +692,23 @@ body[data-view="years"] .practice-dock {
   border-radius: 999px;
   background: var(--red);
   font-weight: 950;
+  white-space: nowrap;
 }
 
-.recent-item span.ok {
+.recent-item.is-ok {
+  background: rgba(47, 118, 89, 0.14);
+}
+
+.recent-item.is-ok span {
   background: var(--green);
+}
+
+.recent-item.is-miss {
+  background: rgba(201, 70, 44, 0.13);
+}
+
+.recent-item.is-empty {
+  background: #fff;
 }
 
 .toast {
