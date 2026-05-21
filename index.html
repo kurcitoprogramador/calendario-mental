@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#111111" />
+    <title>Calendario Mental</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Calendario Mental">
+          <span class="brand-mark">7</span>
+          <span>
+            <span class="brand-kicker">Calendario</span>
+            <strong>Mental</strong>
+          </span>
+        </a>
+
+        <nav class="tabs" aria-label="Secciones">
+          <button class="tab is-active" data-tab="study" type="button">Estudio</button>
+          <button class="tab" data-tab="practice" type="button">Practica</button>
+        </nav>
+
+        <div class="top-metrics" aria-label="Progreso">
+          <span><b id="metric-accuracy">0%</b> acierto</span>
+          <span><b id="metric-streak">0</b> racha</span>
+        </div>
+      </header>
+
+      <main>
+        <section class="view is-active" id="view-study" aria-labelledby="study-title">
+          <div class="view-head">
+            <div>
+              <p class="eyebrow">Metodo</p>
+              <h1 id="study-title">Estudio</h1>
+            </div>
+            <button class="ghost-button" id="study-done" type="button">Hecho</button>
+          </div>
+
+          <div class="study-layout">
+            <section class="panel focus-panel" aria-label="Inspector">
+              <div class="panel-row">
+                <div>
+                  <p class="eyebrow">Fecha</p>
+                  <h2 id="analysis-weekday">--</h2>
+                </div>
+                <div class="weekday-orbit" id="weekday-orbit" aria-hidden="true">
+                  <span>lu</span>
+                  <span>ma</span>
+                  <span>mi</span>
+                  <span>ju</span>
+                  <span>vi</span>
+                  <span>sa</span>
+                  <span>do</span>
+                </div>
+              </div>
+
+              <label class="field-label" for="study-date">Analizar</label>
+              <div class="input-line">
+                <input id="study-date" type="date" />
+                <button class="solid-button" id="analyze-date" type="button">Ver</button>
+              </div>
+
+              <dl class="analysis-grid">
+                <div>
+                  <dt>Ancla</dt>
+                  <dd id="analysis-anchor">--</dd>
+                </div>
+                <div>
+                  <dt>Salto</dt>
+                  <dd id="analysis-delta">--</dd>
+                </div>
+                <div>
+                  <dt>Mod</dt>
+                  <dd id="analysis-mod">--</dd>
+                </div>
+              </dl>
+            </section>
+
+            <section class="lesson-stack" id="lesson-cards" aria-label="Leccion"></section>
+
+            <section class="panel anchor-panel" aria-label="Anclas">
+              <div class="section-line">
+                <h2>Anclas</h2>
+                <span id="anchor-mode">normal</span>
+              </div>
+              <div class="anchor-grid" id="anchor-grid"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="view-practice" aria-labelledby="practice-title">
+          <div class="view-head">
+            <div>
+              <p class="eyebrow">Reto</p>
+              <h1 id="practice-title">Practica</h1>
+            </div>
+            <div class="segmented" role="group" aria-label="Nivel">
+              <button class="is-active" data-level="base" type="button">Base</button>
+              <button data-level="medio" type="button">Medio</button>
+              <button data-level="duro" type="button">Duro</button>
+            </div>
+          </div>
+
+          <div class="practice-layout">
+            <section class="panel challenge-panel" aria-live="polite">
+              <div class="challenge-top">
+                <span class="badge" id="challenge-level">Base</span>
+                <span id="challenge-timer">0.0s</span>
+              </div>
+              <p class="eyebrow">Dia</p>
+              <h2 id="challenge-date">--</h2>
+              <div class="answer-grid" id="answer-grid"></div>
+              <div class="action-row">
+                <button class="ghost-button" id="skip-challenge" type="button">Saltar</button>
+                <button class="solid-button" id="next-challenge" type="button">Nuevo</button>
+              </div>
+            </section>
+
+            <section class="panel result-panel" id="result-panel">
+              <div class="section-line">
+                <h2>Resultado</h2>
+                <span id="result-state">listo</span>
+              </div>
+              <p class="result-word" id="result-word">--</p>
+              <ol class="step-list" id="result-steps"></ol>
+            </section>
+
+            <section class="panel stats-panel">
+              <div class="section-line">
+                <h2>Ritmo</h2>
+                <span id="metric-total">0</span>
+              </div>
+              <dl class="stats-grid">
+                <div>
+                  <dt>Aciertos</dt>
+                  <dd id="metric-correct">0</dd>
+                </div>
+                <div>
+                  <dt>Mejor</dt>
+                  <dd id="metric-best">--</dd>
+                </div>
+                <div>
+                  <dt>Media</dt>
+                  <dd id="metric-average">--</dd>
+                </div>
+                <div>
+                  <dt>Estudio</dt>
+                  <dd id="metric-study">0m</dd>
+                </div>
+              </dl>
+              <div class="recent-list" id="recent-list" aria-label="Intentos recientes"></div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
