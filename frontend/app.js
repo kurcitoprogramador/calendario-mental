@@ -71,8 +71,11 @@ const state = {
   lesson: null,
   progress: null,
   challenge: null,
+  yearChallenge: null,
   level: "base",
+  yearLevel: "base",
   challengeStartedAt: performance.now(),
+  yearStartedAt: performance.now(),
   studyStartedAt: performance.now(),
   timerId: null,
 };
@@ -161,12 +164,15 @@ const renderProgress = () => {
   $("#recent-list").innerHTML = recent.length
     ? recent
         .map(
-          (item) => `
+          (item) => {
+            const label = item.kind === "year" ? item.year || item.date : item.date;
+            return `
             <article class="recent-item">
-              <b>${item.date} - ${titleCase(item.answer)}</b>
+              <b>${label} - ${titleCase(item.answer)}</b>
               <span class="${item.correct ? "ok" : ""}">${item.correct ? "ok" : "no"}</span>
             </article>
-          `,
+          `;
+          },
         )
         .join("")
     : `<article class="recent-item"><b>Sin intentos</b><span>--</span></article>`;
@@ -294,10 +300,95 @@ const answerChallenge = async (answer) => {
 
 const setLevel = async (level) => {
   state.level = level;
-  $$(".segmented button").forEach((button) => {
+  $$("#date-levels button").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.level === level);
   });
   await loadChallenge();
+};
+
+const loadYearChallenge = async () => {
+  const seed = Date.now();
+  const payload = await api(
+    `/api/year/challenge?level=${encodeURIComponent(state.yearLevel)}&count=1&seed=${seed}`,
+  );
+  state.yearChallenge = payload.challenges[0];
+  state.yearStartedAt = performance.now();
+  renderYearChallenge();
+  renderYearResult(null);
+};
+
+const renderYearChallenge = () => {
+  const challenge = state.yearChallenge;
+  if (!challenge) return;
+  $("#year-level").textContent = state.yearLevel;
+  $("#year-value").textContent = challenge.label;
+  $("#year-answer-grid").innerHTML = challenge.options
+    .map(
+      (option) => `
+        <button type="button" data-year-answer="${option}">
+          ${titleCase(option)}
+        </button>
+      `,
+    )
+    .join("");
+};
+
+const renderYearFormula = (analysis = null) => {
+  $("#year-century").textContent = analysis ? `${analysis.century} - ${titleCase(analysis.centuryAnchor)}` : "--";
+  $("#year-tail").textContent = analysis ? analysis.yearPart : "--";
+  $("#year-jump").textContent = analysis ? `${analysis.yearPart} + ${analysis.leapCount} = ${analysis.jump}` : "--";
+  $("#year-mod").textContent = analysis ? analysis.jumpMod : "--";
+};
+
+const renderYearResult = (payload, selected = "") => {
+  const stateNode = $("#year-result-state");
+  const word = $("#year-result-word");
+  const steps = $("#year-result-steps");
+
+  if (!payload) {
+    stateNode.textContent = "listo";
+    word.textContent = "--";
+    steps.innerHTML = "";
+    renderYearFormula(null);
+    return;
+  }
+
+  stateNode.textContent = payload.correct ? "bien" : "fallo";
+  word.textContent = titleCase(payload.correctWeekday);
+  steps.innerHTML = payload.analysis.steps.map((step) => `<li>${step}</li>`).join("");
+  renderYearFormula(payload.analysis);
+
+  $$("#year-answer-grid button").forEach((button) => {
+    const answer = button.dataset.yearAnswer;
+    button.disabled = true;
+    button.classList.toggle("is-correct", answer === payload.correctWeekday);
+    button.classList.toggle("is-wrong", answer === selected && !payload.correct);
+  });
+};
+
+const answerYearChallenge = async (answer) => {
+  if (!state.yearChallenge) return;
+  const elapsedMs = Math.round(performance.now() - state.yearStartedAt);
+  const payload = await api("/api/year/attempt", {
+    method: "POST",
+    body: JSON.stringify({
+      year: state.yearChallenge.year,
+      answer,
+      elapsedMs,
+      level: state.yearLevel,
+    }),
+  });
+  state.progress = payload.progress;
+  renderYearResult(payload, answer);
+  renderProgress();
+};
+
+const setYearLevel = async (level) => {
+  state.yearLevel = level;
+  $$("#year-levels button").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.yearLevel === level);
+  });
+  await loadYearChallenge();
 };
 
 const recordStudy = async () => {
@@ -329,10 +420,17 @@ const wireEvents = () => {
     recordStudy().catch((error) => toast(error.message));
   });
 
-  $(".segmented").addEventListener("click", (event) => {
+  $("#date-levels").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-level]");
     if (button) {
       setLevel(button.dataset.level).catch((error) => toast(error.message));
+    }
+  });
+
+  $("#year-levels").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-year-level]");
+    if (button) {
+      setYearLevel(button.dataset.yearLevel).catch((error) => toast(error.message));
     }
   });
 
@@ -343,6 +441,13 @@ const wireEvents = () => {
     }
   });
 
+  $("#year-answer-grid").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-year-answer]");
+    if (button && !button.disabled) {
+      answerYearChallenge(button.dataset.yearAnswer).catch((error) => toast(error.message));
+    }
+  });
+
   $("#next-challenge").addEventListener("click", () => {
     loadChallenge().catch((error) => toast(error.message));
   });
@@ -350,19 +455,34 @@ const wireEvents = () => {
   $("#skip-challenge").addEventListener("click", () => {
     loadChallenge().catch((error) => toast(error.message));
   });
+
+  $("#next-year").addEventListener("click", () => {
+    loadYearChallenge().catch((error) => toast(error.message));
+  });
+
+  $("#skip-year").addEventListener("click", () => {
+    loadYearChallenge().catch((error) => toast(error.message));
+  });
 };
 
 const startTimer = () => {
   state.timerId = window.setInterval(() => {
     const elapsed = performance.now() - state.challengeStartedAt;
     $("#challenge-timer").textContent = `${(elapsed / 1000).toFixed(1)}s`;
+    const yearElapsed = performance.now() - state.yearStartedAt;
+    $("#year-timer").textContent = `${(yearElapsed / 1000).toFixed(1)}s`;
   }, 120);
 };
 
 const init = async () => {
   wireEvents();
   $("#study-date").value = todayIso();
-  const [lesson] = await Promise.all([api("/api/lesson"), loadProgress(), loadChallenge()]);
+  const [lesson] = await Promise.all([
+    api("/api/lesson"),
+    loadProgress(),
+    loadChallenge(),
+    loadYearChallenge(),
+  ]);
   state.lesson = lesson;
   renderLesson();
   await analyzeCurrentDate();
@@ -401,6 +521,17 @@ const doomsdayDayForMonth = (year, month) => {
 };
 
 const doomsdayForYear = (year) => new Date(Date.UTC(year, 2, 14)).getUTCDay();
+
+const parseYear = (value) => {
+  const year = Number(value);
+  if (!Number.isInteger(year)) {
+    throw new Error("Ano invalido.");
+  }
+  if (year < 1600 || year > 9999) {
+    throw new Error("Usa un ano entre 1600 y 9999.");
+  }
+  return year;
+};
 
 const diffDays = (a, b) =>
   Math.round(
@@ -441,6 +572,41 @@ const analyzeDateStatic = (isoDate) => {
   };
 };
 
+const analyzeYearStatic = (value) => {
+  const year = parseYear(value);
+  const century = year - (year % 100);
+  const yearPart = year % 100;
+  const leapCount = Math.floor(yearPart / 4);
+  const jump = yearPart + leapCount;
+  const jumpMod = mod(jump);
+  const centuryAnchorIndex = doomsdayForYear(century);
+  const anchorIndex = doomsdayForYear(year);
+  const calculatedIndex = (centuryAnchorIndex + jumpMod) % 7;
+
+  return {
+    year,
+    label: String(year),
+    anchorWeekday: WEEKDAYS_SUNDAY_FIRST[anchorIndex],
+    anchorIndex,
+    century,
+    centuryAnchor: WEEKDAYS_SUNDAY_FIRST[centuryAnchorIndex],
+    yearPart,
+    leapCount,
+    jump,
+    jumpMod,
+    leapYear: isLeapYear(year),
+    calculatedWeekday: WEEKDAYS_SUNDAY_FIRST[calculatedIndex],
+    steps: [
+      `Siglo ${century}: ${WEEKDAYS_SUNDAY_FIRST[centuryAnchorIndex]}`,
+      `Final del ano: ${yearPart}`,
+      `Bisiestos: ${yearPart} // 4 = ${leapCount}`,
+      `Salto: ${yearPart} + ${leapCount} = ${jump}`,
+      `Modulo 7: ${jumpMod}`,
+      `Ancla: ${WEEKDAYS_SUNDAY_FIRST[calculatedIndex]}`,
+    ],
+  };
+};
+
 const normalizeWeekday = (answer) => {
   const normalized = String(answer || "")
     .trim()
@@ -466,6 +632,15 @@ const rangeForLevel = (level) => {
     base: [2024, 2029],
     medio: [2000, 2040],
     duro: [1900, 2099],
+  };
+  return ranges[level] || ranges.base;
+};
+
+const yearRangeForLevel = (level) => {
+  const ranges = {
+    base: [2024, 2035],
+    medio: [2000, 2099],
+    duro: [1600, 2399],
   };
   return ranges[level] || ranges.base;
 };
@@ -503,6 +678,25 @@ const generateChallengesStatic = ({ count = 1, level = "base", seed = Date.now()
       label: dateLabel(target),
       level,
       options: shuffle([...options], random),
+    });
+  }
+
+  return { level, challenges };
+};
+
+const generateYearChallengesStatic = ({ count = 1, level = "base", seed = Date.now() }) => {
+  const random = randomFromSeed(seed);
+  const [startYear, endYear] = yearRangeForLevel(level);
+  const total = Math.max(1, Math.min(Number(count) || 1, 20));
+  const challenges = [];
+
+  for (let index = 0; index < total; index += 1) {
+    const year = startYear + Math.floor(random() * (endYear - startYear + 1));
+    challenges.push({
+      year,
+      label: String(year),
+      level,
+      options: shuffle(WEEKDAYS, random),
     });
   }
 
@@ -609,8 +803,20 @@ const staticApi = async (path, options = {}) => {
     return analyzeDateStatic(url.searchParams.get("date"));
   }
 
+  if (url.pathname === "/api/year/analyze") {
+    return analyzeYearStatic(url.searchParams.get("year"));
+  }
+
   if (url.pathname === "/api/practice/challenge") {
     return generateChallengesStatic({
+      level: url.searchParams.get("level") || "base",
+      count: Number(url.searchParams.get("count") || 1),
+      seed: Number(url.searchParams.get("seed") || Date.now()),
+    });
+  }
+
+  if (url.pathname === "/api/year/challenge") {
+    return generateYearChallengesStatic({
       level: url.searchParams.get("level") || "base",
       count: Number(url.searchParams.get("count") || 1),
       seed: Number(url.searchParams.get("seed") || Date.now()),
@@ -640,6 +846,35 @@ const staticApi = async (path, options = {}) => {
       correct: attempt.correct,
       correctWeekday: correctAnswer,
       analysis: analyzeDateStatic(body.date),
+      progress: progressStatic(),
+    };
+  }
+
+  if (url.pathname === "/api/year/attempt") {
+    const year = parseYear(body.year);
+    const answer = normalizeWeekday(body.answer);
+    const analysis = analyzeYearStatic(year);
+    const attempt = {
+      id: Date.now(),
+      kind: "year",
+      year,
+      date: String(year),
+      answer,
+      correctAnswer: analysis.anchorWeekday,
+      correct: answer === analysis.anchorWeekday,
+      elapsedMs: Math.max(0, Number(body.elapsedMs) || 0),
+      level: `year:${body.level || "base"}`,
+      createdAt: createdAtLocal(),
+    };
+    const store = readStore();
+    store.attempts = [...(store.attempts || []), attempt].slice(-500);
+    writeStore(store);
+
+    return {
+      attempt,
+      correct: attempt.correct,
+      correctWeekday: analysis.anchorWeekday,
+      analysis,
       progress: progressStatic(),
     };
   }

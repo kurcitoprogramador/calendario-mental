@@ -8,13 +8,17 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from backend.calendar_logic import (
+    analyze_year,
     analyze_date,
     challenge_to_dict,
     generate_challenges,
+    generate_year_challenges,
     parse_iso_date,
+    parse_year,
     today_seed,
     validate_weekday,
     weekday_for,
+    year_challenge_to_dict,
 )
 from backend.lessons import LESSON
 from backend.storage import Store
@@ -89,11 +93,33 @@ class Handler(BaseHTTPRequestHandler):
                 )
                 return
 
+            if method == "GET" and path == "/api/year/challenge":
+                count = int(self._first(query, "count", "1"))
+                level = self._first(query, "level", "base")
+                seed = self._first(query, "seed", "")
+                seed_value = int(seed) if seed else today_seed(["year", level, str(count)])
+                challenges = generate_year_challenges(count=count, level=level, seed=seed_value)
+                self._send_json(
+                    HTTPStatus.OK,
+                    {
+                        "level": level,
+                        "challenges": [year_challenge_to_dict(item) for item in challenges],
+                    },
+                )
+                return
+
             if method == "GET" and path == "/api/date/analyze":
                 iso_date = self._first(query, "date", "")
                 if not iso_date:
                     raise ApiError(HTTPStatus.BAD_REQUEST, "Falta date.")
                 self._send_json(HTTPStatus.OK, analyze_date(parse_iso_date(iso_date)))
+                return
+
+            if method == "GET" and path == "/api/year/analyze":
+                year = self._first(query, "year", "")
+                if not year:
+                    raise ApiError(HTTPStatus.BAD_REQUEST, "Falta year.")
+                self._send_json(HTTPStatus.OK, analyze_year(parse_year(year)))
                 return
 
             if method == "POST" and path == "/api/practice/attempt":
@@ -113,6 +139,35 @@ class Handler(BaseHTTPRequestHandler):
                     level,
                 )
                 analysis = analyze_date(target)
+                self._send_json(
+                    HTTPStatus.OK,
+                    {
+                        "attempt": attempt,
+                        "correct": correct,
+                        "correctWeekday": correct_answer,
+                        "analysis": analysis,
+                        "progress": STORE.progress(),
+                    },
+                )
+                return
+
+            if method == "POST" and path == "/api/year/attempt":
+                body = self._read_body()
+                year = parse_year(body.get("year", ""))
+                answer = validate_weekday(str(body.get("answer", "")))
+                level = str(body.get("level", "base") or "base")
+                elapsed_ms = int(body.get("elapsedMs", 0) or 0)
+                analysis = analyze_year(year)
+                correct_answer = analysis["anchorWeekday"]
+                correct = answer == correct_answer
+                attempt = STORE.record_attempt(
+                    str(year),
+                    answer,
+                    correct_answer,
+                    correct,
+                    elapsed_ms,
+                    f"year:{level}",
+                )
                 self._send_json(
                     HTTPStatus.OK,
                     {

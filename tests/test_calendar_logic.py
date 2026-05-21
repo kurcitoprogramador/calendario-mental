@@ -2,10 +2,12 @@ import unittest
 from datetime import date
 
 from backend.calendar_logic import (
+    analyze_year,
     analyze_date,
     doomsday_day_for_month,
     doomsday_for_year,
     generate_challenges,
+    generate_year_challenges,
     weekday_for,
 )
 
@@ -37,6 +39,22 @@ class CalendarLogicTest(unittest.TestCase):
 
     def test_doomsday_matches_march_anchor(self):
         self.assertEqual(doomsday_for_year(2026), date(2026, 3, 14).weekday())
+
+    def test_year_analysis(self):
+        analysis = analyze_year(2026)
+        self.assertEqual(analysis["century"], 2000)
+        self.assertEqual(analysis["centuryAnchor"], "martes")
+        self.assertEqual(analysis["yearPart"], 26)
+        self.assertEqual(analysis["leapCount"], 6)
+        self.assertEqual(analysis["jumpMod"], 4)
+        self.assertEqual(analysis["anchorWeekday"], "sabado")
+
+    def test_year_challenges_use_all_weekdays(self):
+        challenges = generate_year_challenges(count=2, level="duro", seed=7)
+        self.assertEqual(len(challenges), 2)
+        self.assertTrue(all(1600 <= item.year <= 2399 for item in challenges))
+        self.assertTrue(all(len(item.options) == 7 for item in challenges))
+        self.assertTrue(all(item.correct_weekday in item.options for item in challenges))
 
 
 if __name__ == "__main__":

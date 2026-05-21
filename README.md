@@ -35,6 +35,7 @@ En Windows tambien puedes usar:
 
 - `Estudio`: anclas, regla de salto y analizador de fechas.
 - `Practica`: retos por nivel, temporizador, resultado y progreso.
+- `Ancla`: retos solo de anos para calcular el dia ancla.
 
 ## API
 
@@ -42,8 +43,11 @@ En Windows tambien puedes usar:
 - `GET /api/lesson`
 - `GET /api/progress`
 - `GET /api/date/analyze?date=YYYY-MM-DD`
+- `GET /api/year/analyze?year=2026`
 - `GET /api/practice/challenge?level=base&count=1`
+- `GET /api/year/challenge?level=base&count=1`
 - `POST /api/practice/attempt`
+- `POST /api/year/attempt`
 - `POST /api/progress/study`
 
 ## Pruebas

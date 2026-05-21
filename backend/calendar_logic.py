@@ -61,6 +61,15 @@ class Challenge:
     explanation: list[str]
 
 
+@dataclass(frozen=True)
+class YearChallenge:
+    year: int
+    level: str
+    correct_weekday: str
+    options: list[str]
+    explanation: list[str]
+
+
 def parse_iso_date(value: str) -> date:
     try:
         return date.fromisoformat(value)
@@ -92,8 +101,54 @@ def doomsday_for_year(year: int) -> int:
     return date(year, 3, 14).weekday()
 
 
+def parse_year(value: str | int) -> int:
+    try:
+        year = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Ano invalido.") from exc
+
+    if year < 1600 or year > 9999:
+        raise ValueError("Usa un ano entre 1600 y 9999.")
+    return year
+
+
 def date_label(value: date) -> str:
     return f"{value.day} {MONTHS[value.month]} {value.year}"
+
+
+def analyze_year(year: int) -> dict:
+    year = parse_year(year)
+    century = year - (year % 100)
+    year_part = year % 100
+    leap_count = year_part // 4
+    jump = year_part + leap_count
+    jump_mod = jump % 7
+    century_anchor_index = doomsday_for_year(century)
+    anchor_index = (century_anchor_index + jump_mod) % 7
+    exact_index = doomsday_for_year(year)
+
+    return {
+        "year": year,
+        "label": str(year),
+        "anchorWeekday": weekday_name(exact_index),
+        "anchorIndex": exact_index,
+        "century": century,
+        "centuryAnchor": weekday_name(century_anchor_index),
+        "yearPart": year_part,
+        "leapCount": leap_count,
+        "jump": jump,
+        "jumpMod": jump_mod,
+        "leapYear": is_leap_year(year),
+        "calculatedWeekday": weekday_name(anchor_index),
+        "steps": [
+            f"Siglo {century}: {weekday_name(century_anchor_index)}",
+            f"Final del ano: {year_part}",
+            f"Bisiestos: {year_part} // 4 = {leap_count}",
+            f"Salto: {year_part} + {leap_count} = {jump}",
+            f"Modulo 7: {jump_mod}",
+            f"Ancla: {weekday_name(anchor_index)}",
+        ],
+    }
 
 
 def analyze_date(value: date) -> dict:
@@ -135,11 +190,26 @@ def _range_for_level(level: str) -> tuple[int, int]:
     return levels.get(level, levels["base"])
 
 
+def _year_range_for_level(level: str) -> tuple[int, int]:
+    levels = {
+        "base": (2024, 2035),
+        "medio": (2000, 2099),
+        "duro": (1600, 2399),
+    }
+    return levels.get(level, levels["base"])
+
+
 def _weekday_options(correct: str, rng: random.Random) -> list[str]:
     options = {correct}
     while len(options) < 4:
         options.add(rng.choice(WEEKDAYS))
     shuffled = list(options)
+    rng.shuffle(shuffled)
+    return shuffled
+
+
+def _all_weekday_options(rng: random.Random) -> list[str]:
+    shuffled = list(WEEKDAYS)
     rng.shuffle(shuffled)
     return shuffled
 
@@ -176,6 +246,30 @@ def generate_challenges(count: int = 1, level: str = "base", seed: int | None = 
     return challenges
 
 
+def generate_year_challenges(
+    count: int = 1, level: str = "base", seed: int | None = None
+) -> list[YearChallenge]:
+    rng = random.Random(seed)
+    start_year, end_year = _year_range_for_level(level)
+    count = max(1, min(int(count or 1), 20))
+    challenges: list[YearChallenge] = []
+
+    for _ in range(count):
+        year = rng.randint(start_year, end_year)
+        analysis = analyze_year(year)
+        challenges.append(
+            YearChallenge(
+                year=year,
+                level=level,
+                correct_weekday=analysis["anchorWeekday"],
+                options=_all_weekday_options(rng),
+                explanation=analysis["steps"],
+            )
+        )
+
+    return challenges
+
+
 def challenge_to_dict(challenge: Challenge, reveal: bool = False) -> dict:
     payload = {
         "date": challenge.iso_date,
@@ -191,6 +285,23 @@ def challenge_to_dict(challenge: Challenge, reveal: bool = False) -> dict:
                 "anchorWeekday": challenge.anchor_weekday,
                 "deltaDays": challenge.delta_days,
                 "deltaMod": challenge.delta_mod,
+                "explanation": challenge.explanation,
+            }
+        )
+    return payload
+
+
+def year_challenge_to_dict(challenge: YearChallenge, reveal: bool = False) -> dict:
+    payload = {
+        "year": challenge.year,
+        "label": str(challenge.year),
+        "level": challenge.level,
+        "options": challenge.options,
+    }
+    if reveal:
+        payload.update(
+            {
+                "correctWeekday": challenge.correct_weekday,
                 "explanation": challenge.explanation,
             }
         )
