@@ -2,6 +2,10 @@
 
 App minimalista para entrenar el calculo mental del dia de la semana.
 
+## Link publico
+
+https://kurcitoprogramador.github.io/calendario-mental/
+
 ## Stack
 
 - Backend: Python 3 + HTTP server propio
