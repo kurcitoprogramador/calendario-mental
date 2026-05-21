@@ -22,6 +22,7 @@
         <nav class="tabs" aria-label="Secciones">
           <button class="tab is-active" data-tab="study" type="button">Estudio</button>
           <button class="tab" data-tab="practice" type="button">Practica</button>
+          <button class="tab" data-tab="years" type="button">Ancla</button>
         </nav>
 
         <div class="top-metrics" aria-label="Progreso">
@@ -98,7 +99,7 @@
               <p class="eyebrow">Reto</p>
               <h1 id="practice-title">Practica</h1>
             </div>
-            <div class="segmented" role="group" aria-label="Nivel">
+            <div class="segmented" id="date-levels" role="group" aria-label="Nivel">
               <button class="is-active" data-level="base" type="button">Base</button>
               <button data-level="medio" type="button">Medio</button>
               <button data-level="duro" type="button">Duro</button>
@@ -153,6 +154,70 @@
                 </div>
               </dl>
               <div class="recent-list" id="recent-list" aria-label="Intentos recientes"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="view-years" aria-labelledby="years-title">
+          <div class="view-head">
+            <div>
+              <p class="eyebrow">Ano</p>
+              <h1 id="years-title">Ancla</h1>
+            </div>
+            <div class="segmented" id="year-levels" role="group" aria-label="Nivel de anos">
+              <button class="is-active" data-year-level="base" type="button">Base</button>
+              <button data-year-level="medio" type="button">Medio</button>
+              <button data-year-level="duro" type="button">Duro</button>
+            </div>
+          </div>
+
+          <div class="practice-layout">
+            <section class="panel challenge-panel" aria-live="polite">
+              <div class="challenge-top">
+                <span class="badge" id="year-level">Base</span>
+                <span id="year-timer">0.0s</span>
+              </div>
+              <p class="eyebrow">Ano</p>
+              <h2 id="year-value">--</h2>
+              <div class="answer-grid weekday-grid" id="year-answer-grid"></div>
+              <div class="action-row">
+                <button class="ghost-button" id="skip-year" type="button">Saltar</button>
+                <button class="solid-button" id="next-year" type="button">Nuevo</button>
+              </div>
+            </section>
+
+            <section class="panel result-panel" id="year-result-panel">
+              <div class="section-line">
+                <h2>Resultado</h2>
+                <span id="year-result-state">listo</span>
+              </div>
+              <p class="result-word" id="year-result-word">--</p>
+              <ol class="step-list" id="year-result-steps"></ol>
+            </section>
+
+            <section class="panel stats-panel">
+              <div class="section-line">
+                <h2>Calculo</h2>
+                <span id="year-formula-mode">exacto</span>
+              </div>
+              <dl class="stats-grid">
+                <div>
+                  <dt>Siglo</dt>
+                  <dd id="year-century">--</dd>
+                </div>
+                <div>
+                  <dt>Final</dt>
+                  <dd id="year-tail">--</dd>
+                </div>
+                <div>
+                  <dt>Salto</dt>
+                  <dd id="year-jump">--</dd>
+                </div>
+                <div>
+                  <dt>Mod</dt>
+                  <dd id="year-mod">--</dd>
+                </div>
+              </dl>
             </section>
           </div>
         </section>
