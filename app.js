@@ -140,8 +140,18 @@ const toast = (message) => {
   );
 };
 
+const pulsePanel = (selector) => {
+  const node = $(selector);
+  if (!node) return;
+  node.classList.remove("is-refreshing");
+  window.requestAnimationFrame(() => {
+    node.classList.add("is-refreshing");
+  });
+};
+
 const setTab = (tab) => {
   state.tab = tab;
+  document.body.dataset.view = tab;
   $$(".tab").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.tab === tab);
   });
@@ -239,6 +249,7 @@ const loadChallenge = async () => {
   state.challengeStartedAt = performance.now();
   renderChallenge();
   renderResult(null);
+  pulsePanel("#view-practice .challenge-panel");
 };
 
 const renderChallenge = () => {
@@ -315,6 +326,7 @@ const loadYearChallenge = async () => {
   state.yearStartedAt = performance.now();
   renderYearChallenge();
   renderYearResult(null);
+  pulsePanel("#view-years .challenge-panel");
 };
 
 const renderYearChallenge = () => {
@@ -333,11 +345,14 @@ const renderYearChallenge = () => {
     .join("");
 };
 
-const renderYearFormula = (analysis = null) => {
+const renderYearFormula = (analysis = null, attempt = null, correct = false) => {
+  const correctTime = correct && attempt ? seconds(attempt.elapsedMs) : "--";
   $("#year-century").textContent = analysis ? `${analysis.century} - ${titleCase(analysis.centuryAnchor)}` : "--";
-  $("#year-tail").textContent = analysis ? analysis.yearPart : "--";
-  $("#year-jump").textContent = analysis ? `${analysis.yearPart} + ${analysis.leapCount} = ${analysis.jump}` : "--";
-  $("#year-mod").textContent = analysis ? analysis.jumpMod : "--";
+  $("#year-quarter").textContent = analysis ? `${analysis.quarterLine}; saco ${analysis.leapCount}` : "--";
+  $("#year-week").textContent = analysis ? `${analysis.weekLine}; saco ${analysis.weekRemainder}` : "--";
+  $("#year-sum").textContent = analysis ? `${analysis.leapCount} + ${analysis.weekRemainder} = ${analysis.mentalTotal} -> ${analysis.mentalMod}` : "--";
+  $("#year-mental").textContent = analysis ? analysis.mentalLine : "--";
+  $("#year-correct-time").textContent = correctTime;
 };
 
 const renderYearResult = (payload, selected = "") => {
@@ -354,9 +369,12 @@ const renderYearResult = (payload, selected = "") => {
   }
 
   stateNode.textContent = payload.correct ? "bien" : "fallo";
+  if (payload.correct && payload.attempt?.elapsedMs) {
+    stateNode.textContent = `bien - ${seconds(payload.attempt.elapsedMs)}`;
+  }
   word.textContent = titleCase(payload.correctWeekday);
   steps.innerHTML = payload.analysis.steps.map((step) => `<li>${step}</li>`).join("");
-  renderYearFormula(payload.analysis);
+  renderYearFormula(payload.analysis, payload.attempt, payload.correct);
 
   $$("#year-answer-grid button").forEach((button) => {
     const answer = button.dataset.yearAnswer;
@@ -403,6 +421,27 @@ const recordStudy = async () => {
   toast("Sesion guardada");
 };
 
+const resetProgress = async () => {
+  if (!window.confirm("Borrar progreso, racha e intentos?")) return;
+  const payload = await api("/api/progress/reset", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+  state.progress = payload.progress;
+  renderProgress();
+  toast("Progreso limpio");
+};
+
+const loadActiveChallenge = () => {
+  if (state.tab === "years") {
+    return loadYearChallenge();
+  }
+  if (state.tab === "practice") {
+    return loadChallenge();
+  }
+  return Promise.resolve();
+};
+
 const wireEvents = () => {
   $$(".tab").forEach((button) => {
     button.addEventListener("click", () => setTab(button.dataset.tab));
@@ -418,6 +457,10 @@ const wireEvents = () => {
 
   $("#study-done").addEventListener("click", () => {
     recordStudy().catch((error) => toast(error.message));
+  });
+
+  $("#reset-progress").addEventListener("click", () => {
+    resetProgress().catch((error) => toast(error.message));
   });
 
   $("#date-levels").addEventListener("click", (event) => {
@@ -463,6 +506,14 @@ const wireEvents = () => {
   $("#skip-year").addEventListener("click", () => {
     loadYearChallenge().catch((error) => toast(error.message));
   });
+
+  $("#dock-next").addEventListener("click", () => {
+    loadActiveChallenge().catch((error) => toast(error.message));
+  });
+
+  $("#dock-skip").addEventListener("click", () => {
+    loadActiveChallenge().catch((error) => toast(error.message));
+  });
 };
 
 const startTimer = () => {
@@ -476,6 +527,7 @@ const startTimer = () => {
 
 const init = async () => {
   wireEvents();
+  setTab("study");
   $("#study-date").value = todayIso();
   const [lesson] = await Promise.all([
     api("/api/lesson"),
@@ -577,11 +629,17 @@ const analyzeYearStatic = (value) => {
   const century = year - (year % 100);
   const yearPart = year % 100;
   const leapCount = Math.floor(yearPart / 4);
+  const quarterRemainder = yearPart % 4;
+  const weekCount = Math.floor(yearPart / 7);
+  const weekRemainder = yearPart % 7;
+  const mentalTotal = leapCount + weekRemainder;
+  const mentalMod = mod(mentalTotal);
   const jump = yearPart + leapCount;
   const jumpMod = mod(jump);
   const centuryAnchorIndex = doomsdayForYear(century);
   const anchorIndex = doomsdayForYear(year);
-  const calculatedIndex = (centuryAnchorIndex + jumpMod) % 7;
+  const calculatedIndex = (centuryAnchorIndex + mentalMod) % 7;
+  const anchorWeekday = WEEKDAYS_SUNDAY_FIRST[calculatedIndex];
 
   return {
     year,
@@ -592,17 +650,25 @@ const analyzeYearStatic = (value) => {
     centuryAnchor: WEEKDAYS_SUNDAY_FIRST[centuryAnchorIndex],
     yearPart,
     leapCount,
+    quarterRemainder,
+    weekCount,
+    weekRemainder,
+    mentalTotal,
+    mentalMod,
+    quarterLine: `${yearPart} = 4*${leapCount} + ${quarterRemainder}`,
+    weekLine: `${yearPart} = 7*${weekCount} + ${weekRemainder}`,
+    mentalLine: `${leapCount} + ${weekRemainder} o sea ${mentalMod} o sea ${anchorWeekday}`,
     jump,
     jumpMod,
     leapYear: isLeapYear(year),
     calculatedWeekday: WEEKDAYS_SUNDAY_FIRST[calculatedIndex],
     steps: [
       `Siglo ${century}: ${WEEKDAYS_SUNDAY_FIRST[centuryAnchorIndex]}`,
-      `Final del ano: ${yearPart}`,
-      `Bisiestos: ${yearPart} // 4 = ${leapCount}`,
-      `Salto: ${yearPart} + ${leapCount} = ${jump}`,
-      `Modulo 7: ${jumpMod}`,
-      `Ancla: ${WEEKDAYS_SUNDAY_FIRST[calculatedIndex]}`,
+      `Entre 4: ${yearPart} = 4*${leapCount} + ${quarterRemainder}; saco ${leapCount}`,
+      `Entre 7: ${yearPart} = 7*${weekCount} + ${weekRemainder}; saco ${weekRemainder}`,
+      `Suma: ${leapCount} + ${weekRemainder} = ${mentalTotal}`,
+      `Modulo 7: ${mentalMod}`,
+      `Mental: ${leapCount} + ${weekRemainder} o sea ${mentalMod} o sea ${anchorWeekday}`,
     ],
   };
 };
@@ -892,6 +958,11 @@ const staticApi = async (path, options = {}) => {
     writeStore(store);
 
     return { event, progress: progressStatic() };
+  }
+
+  if (url.pathname === "/api/progress/reset") {
+    localStorage.removeItem(storageKey);
+    return { progress: progressStatic() };
   }
 
   throw new Error("Ruta no encontrada.");

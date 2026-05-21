@@ -28,6 +28,7 @@
         <div class="top-metrics" aria-label="Progreso">
           <span><b id="metric-accuracy">0%</b> acierto</span>
           <span><b id="metric-streak">0</b> racha</span>
+          <button class="metric-reset" id="reset-progress" type="button">Limpiar</button>
         </div>
       </header>
 
@@ -206,22 +207,35 @@
                   <dd id="year-century">--</dd>
                 </div>
                 <div>
-                  <dt>Final</dt>
-                  <dd id="year-tail">--</dd>
+                  <dt>Entre 4</dt>
+                  <dd id="year-quarter">--</dd>
                 </div>
                 <div>
-                  <dt>Salto</dt>
-                  <dd id="year-jump">--</dd>
+                  <dt>Entre 7</dt>
+                  <dd id="year-week">--</dd>
                 </div>
                 <div>
-                  <dt>Mod</dt>
-                  <dd id="year-mod">--</dd>
+                  <dt>Suma</dt>
+                  <dd id="year-sum">--</dd>
+                </div>
+                <div class="wide-stat">
+                  <dt>Mental</dt>
+                  <dd id="year-mental">--</dd>
+                </div>
+                <div>
+                  <dt>Tiempo</dt>
+                  <dd id="year-correct-time">--</dd>
                 </div>
               </dl>
             </section>
           </div>
         </section>
       </main>
+    </div>
+
+    <div class="practice-dock" id="practice-dock" aria-label="Controles fijos">
+      <button class="ghost-button" id="dock-skip" type="button">Saltar</button>
+      <button class="solid-button" id="dock-next" type="button">Nuevo</button>
     </div>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
